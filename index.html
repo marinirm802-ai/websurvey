@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Uji Petik Topografi</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+
+    <!-- Header Navigation -->
+    <nav class="bg-slate-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-xl font-bold tracking-wide flex items-center gap-2">
+                    <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                    </svg>
+                    Dashboard Uji Petik Topografi
+                </h1>
+                <p class="text-xs text-gray-400 mt-0.5">Monitoring Data Spot Check & Progress Tambang / Sipil</p>
+            </div>
+            
+            <!-- File Uploader -->
+            <div class="flex items-center gap-3">
+                <label for="excelFileInput" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                    </svg>
+                    Unggah Excel Harian (.xlsx / .csv)
+                </label>
+                <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden">
+                <span id="fileNameDisplay" class="text-xs text-gray-300 italic max-w-[150px] truncate">Gunakan Data Sampel</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- Mode Input Toggle Notification -->
+        <div id="uploadModeBar" class="hidden bg-blue-50 border-l-4 border-blue-500 p-4 rounded shadow-sm flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="text-sm text-blue-900">
+                <span class="font-semibold" id="loadedInfoText">File berhasil dimuat!</span>
+                Pilih opsi pengolahan data baru ini:
+            </div>
+            <div class="flex gap-2">
+                <button id="btnReplaceData" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition">
+                    Ganti Dataset (*Replace*)
+                </button>
+                <button id="btnAppendData" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition">
+                    Gabungkan Data (*Append*)
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
+                <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Titik Ukur</div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="kpiTotalPoints" class="text-3xl font-extrabold text-slate-900">0</span>
+                    <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold">Point</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
+                <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Rentang Elevasi (Z)</div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="kpiElevRange" class="text-2xl font-bold text-slate-800">-</span>
+                    <span class="text-xs text-gray-400">mdpl</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
+                <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Rata-Rata Elevasi</div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="kpiAvgElev" class="text-3xl font-extrabold text-emerald-600">0</span>
+                    <span class="text-xs text-gray-400">mdpl</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
+                <div class="text-xs font-medium text-gray-500 uppercase tracking-wider">Sebaran Kategori</div>
+                <div class="mt-2 flex justify-between items-center text-xs text-gray-600 font-semibold" id="kpiCodeDistribution">
+                    <span>C: 0</span>
+                    <span>T: 0</span>
+                    <span>SH: 0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizations Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Spatial Map Plot (2D Scatter) -->
+            <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900">Peta Sebaran Titik Spasial (Easting vs Northing)</h2>
+                        <p class="text-xs text-gray-500">Visualisasi 2D geometri lereng dan sebaran titik ukur</p>
+                    </div>
+                    <button id="btnResetZoom" class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-gray-700 transition">
+                        Reset View
+                    </button>
+                </div>
+                <div class="h-80 w-full relative">
+                    <canvas id="spatialScatterChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Elevation Distribution Bar Chart -->
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 mb-1">Rata-Rata Elevasi per Kode</h2>
+                    <p class="text-xs text-gray-500 mb-4">Perbandingan beda tinggi antar kategori fitur (Crest, Toe, SH)</p>
+                    <div class="h-64 w-full relative">
+                        <canvas id="elevationBarChart"></canvas>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500 flex justify-around text-center">
+                    <div>
+                        <span class="block text-gray-400">Min Z</span>
+                        <span id="statMinZ" class="font-bold text-gray-700">-</span>
+                    </div>
+                    <div>
+                        <span class="block text-gray-400">Max Z</span>
+                        <span id="statMaxZ" class="font-bold text-gray-700">-</span>
+                    </div>
+                    <div>
+                        <span class="block text-gray-400">Std Dev</span>
+                        <span id="statStdDev" class="font-bold text-gray-700">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table Section -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">Tabel Detail Data Uji Petik</h2>
+                    <p class="text-xs text-gray-500">Daftar koordinat dan elevasi terukur</p>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <!-- Search Input -->
+                    <input type="text" id="searchInput" placeholder="Cari ID Titik / Kode..." class="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full sm:w-48">
+                    
+                    <!-- Filter Code -->
+                    <select id="filterCodeSelect" class="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <option value="ALL">Semua Kode</option>
+                    </select>
+
+                    <!-- Export CSV Button -->
+                    <button id="btnExportCSV" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead class="bg-slate-50 text-slate-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold">ID Titik</th>
+                            <th class="px-4 py-3 text-left font-semibold">Kode</th>
+                            <th class="px-4 py-3 text-right font-semibold">Northing (Y)</th>
+                            <th class="px-4 py-3 text-right font-semibold">Easting (X)</th>
+                            <th class="px-4 py-3 text-right font-semibold">Elevasi (Z)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="surveyTableBody" class="divide-y divide-gray-100 text-gray-700">
+                        <!-- Rows rendered via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Footer / Pagination -->
+            <div class="px-5 py-3 border-t border-gray-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
+                <div id="tablePaginationInfo">Menampilkan 0 data</div>
+                <div class="flex gap-2" id="paginationControls">
+                    <!-- Buttons rendered via JavaScript -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Custom Script -->
+    <script src="app.js"></script>
+</body>
+</html>
